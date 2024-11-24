@@ -15,23 +15,23 @@ impl Drop for TerminalRawMode {
 
 impl TerminalRawMode {
     unsafe fn enable() -> Self {
-        let mut old: libc::termios = std::mem::zeroed();
-        libc::tcgetattr(libc::STDIN_FILENO, &mut old);
+        let mut term_old: libc::termios = std::mem::zeroed();
+        libc::tcgetattr(libc::STDIN_FILENO, &mut term_old);
 
-        let mut new = old;
+        let mut term_new = term_old;
 
-        new.c_iflag &= !(libc::BRKINT | libc::ICRNL | libc::INPCK | libc::ISTRIP | libc::IXON);
-        new.c_oflag &= !(libc::OPOST);
-        new.c_cflag |= libc::CS8;
-        new.c_lflag &= !(libc::ECHO | libc::ICANON | libc::IEXTEN | libc::ISIG);
+        term_new.c_iflag &= !(libc::BRKINT | libc::ICRNL | libc::INPCK | libc::ISTRIP | libc::IXON);
+        term_new.c_oflag &= !(libc::OPOST);
+        term_new.c_lflag &= !(libc::ECHO | libc::ICANON | libc::IEXTEN | libc::ISIG);
+        term_new.c_cflag |= libc::CS8;
 
-        new.c_cc[libc::VMIN] = 0;
-        new.c_cc[libc::VTIME] = 1;
+        term_new.c_cc[libc::VMIN] = 0;
+        term_new.c_cc[libc::VTIME] = 1;
 
-        libc::tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, &new);
+        libc::tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, &term_new);
 
         Self {
-            original_state: old,
+            original_state: term_old,
         }
     }
 }
