@@ -47,10 +47,6 @@ fn main() -> Result<(), io::Error> {
         };
 
         let c = buffer[0] as char;
-        if c == 'q' {
-            break;
-        }
-
         if c.is_control() {
             // For control characters, just print the numeric value
             println!("{}\r", buffer[0]);
@@ -58,7 +54,15 @@ fn main() -> Result<(), io::Error> {
             // For regular characters, print both value and character
             println!("{} ('{}')\r", buffer[0], c);
         }
+
+        if c == ctrl_key('q') {
+            break;
+        }
     }
 
     Ok(())
+}
+
+fn ctrl_key(ch: char) -> char {
+    (ch as u8 & 0x1f) as char
 }
