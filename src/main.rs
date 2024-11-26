@@ -1,6 +1,48 @@
 use libc::{self};
 use std::io::{self, Read};
 
+fn main() -> Result<(), io::Error> {
+    let _raw_mode = unsafe { TerminalRawMode::enable() };
+
+    println!("Press ctrl-q to quit");
+
+    loop {
+        editor_refresh_screen();
+        editor_process_keypress()?;
+    }
+}
+
+fn ctrl_key(ch: char) -> char {
+    (ch as u8 & 0x1f) as char
+}
+
+fn editor_refresh_screen() {
+    print!("\x1b[2J");
+}
+
+fn editor_process_keypress() -> Result<(), std::io::Error> {
+    let c = editor_read_key()?;
+
+    if c == ctrl_key('q') {
+        std::process::exit(0);
+    } else {
+        println!("\n\rkey: {}", c);
+    }
+    Ok(())
+}
+
+fn editor_read_key() -> Result<char, std::io::Error> {
+    let mut stdin = std::io::stdin();
+    let mut buffer = [0; 1];
+
+    loop {
+        if let Ok(_) = stdin.read_exact(&mut buffer) {
+            break;
+        }
+    }
+    Ok(buffer[0] as char)
+}
+
 struct TerminalRawMode {
     original_state: libc::termios,
 }
@@ -34,35 +76,4 @@ impl TerminalRawMode {
             original_state: term_old,
         }
     }
-}
-
-fn main() -> Result<(), io::Error> {
-    let _raw_mode = unsafe { TerminalRawMode::enable() };
-    let mut stdin = std::io::stdin();
-    let mut buffer = [0; 1];
-
-    loop {
-        let Ok(_) = stdin.read_exact(&mut buffer) else {
-            continue;
-        };
-
-        let c = buffer[0] as char;
-        if c.is_control() {
-            // For control characters, just print the numeric value
-            println!("{}\r", buffer[0]);
-        } else {
-            // For regular characters, print both value and character
-            println!("{} ('{}')\r", buffer[0], c);
-        }
-
-        if c == ctrl_key('q') {
-            break;
-        }
-    }
-
-    Ok(())
-}
-
-fn ctrl_key(ch: char) -> char {
-    (ch as u8 & 0x1f) as char
 }
