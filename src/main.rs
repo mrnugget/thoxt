@@ -2,7 +2,7 @@ use libc::{self};
 use std::io::{self, Read, Write};
 
 fn main() -> Result<(), io::Error> {
-    let _raw_mode = unsafe { TerminalRawMode::enable() };
+    let _raw_mode = unsafe { EditorConfig::new() };
 
     println!("Press ctrl-q to quit");
 
@@ -55,39 +55,51 @@ fn editor_read_key() -> Result<char, std::io::Error> {
     Ok(buffer[0] as char)
 }
 
-struct TerminalRawMode {
-    original_state: libc::termios,
+struct EditorConfig {
+    original_termios: libc::termios,
 }
 
-impl Drop for TerminalRawMode {
+impl Drop for EditorConfig {
     fn drop(&mut self) {
         unsafe {
-            libc::tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, &self.original_state);
+            set_termios(&self.original_termios);
         }
     }
 }
 
-impl TerminalRawMode {
-    unsafe fn enable() -> Self {
-        let mut term_old: libc::termios = std::mem::zeroed();
-        libc::tcgetattr(libc::STDIN_FILENO, &mut term_old);
+impl EditorConfig {
+    fn new() -> Self {
+        let original_termios = unsafe { enable_raw_mode() };
 
-        let mut term_new = term_old;
-
-        term_new.c_iflag &= !(libc::BRKINT | libc::ICRNL | libc::INPCK | libc::ISTRIP | libc::IXON);
-        term_new.c_lflag &= !(libc::ECHO | libc::ICANON | libc::IEXTEN | libc::ISIG);
-        term_new.c_cflag |= libc::CS8;
-
-        // TODO: This kills terminal output after exiting the editor
-        // term_new.c_oflag &= !(libc::OPOST);
-
-        term_new.c_cc[libc::VMIN] = 0;
-        term_new.c_cc[libc::VTIME] = 1;
-
-        libc::tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, &term_new);
-
-        Self {
-            original_state: term_old,
-        }
+        Self { original_termios }
     }
+}
+
+unsafe fn enable_raw_mode() -> libc::termios {
+    let mut term_old: libc::termios = std::mem::zeroed();
+    get_termios(&mut term_old);
+
+    let mut term_new = term_old;
+
+    term_new.c_iflag &= !(libc::BRKINT | libc::ICRNL | libc::INPCK | libc::ISTRIP | libc::IXON);
+    term_new.c_lflag &= !(libc::ECHO | libc::ICANON | libc::IEXTEN | libc::ISIG);
+    term_new.c_cflag |= libc::CS8;
+
+    // TODO: This kills terminal output after exiting the editor
+    // term_new.c_oflag &= !(libc::OPOST);
+
+    term_new.c_cc[libc::VMIN] = 0;
+    term_new.c_cc[libc::VTIME] = 1;
+
+    set_termios(&term_new);
+
+    term_old
+}
+
+unsafe fn get_termios(termios: &mut libc::termios) {
+    libc::tcgetattr(libc::STDIN_FILENO, termios);
+}
+
+unsafe fn set_termios(termios: &libc::termios) {
+    libc::tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, termios);
 }
