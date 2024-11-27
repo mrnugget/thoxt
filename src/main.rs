@@ -1,5 +1,5 @@
 use libc::{self};
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 
 fn main() -> Result<(), io::Error> {
     let _raw_mode = unsafe { TerminalRawMode::enable() };
@@ -16,14 +16,26 @@ fn ctrl_key(ch: char) -> char {
     (ch as u8 & 0x1f) as char
 }
 
+fn editor_draw_rows() {
+    for _ in 0..24 {
+        print!("~\r\n");
+    }
+}
+
 fn editor_refresh_screen() {
     print!("\x1b[2J");
+    print!("\x1b[H");
+
+    editor_draw_rows();
+
+    print!("\x1b[H");
 }
 
 fn editor_process_keypress() -> Result<(), std::io::Error> {
     let c = editor_read_key()?;
 
     if c == ctrl_key('q') {
+        editor_refresh_screen();
         std::process::exit(0);
     } else {
         println!("\n\rkey: {}", c);
@@ -63,9 +75,11 @@ impl TerminalRawMode {
         let mut term_new = term_old;
 
         term_new.c_iflag &= !(libc::BRKINT | libc::ICRNL | libc::INPCK | libc::ISTRIP | libc::IXON);
-        term_new.c_oflag &= !(libc::OPOST);
         term_new.c_lflag &= !(libc::ECHO | libc::ICANON | libc::IEXTEN | libc::ISIG);
         term_new.c_cflag |= libc::CS8;
+
+        // TODO: This kills terminal output after exiting the editor
+        // term_new.c_oflag &= !(libc::OPOST);
 
         term_new.c_cc[libc::VMIN] = 0;
         term_new.c_cc[libc::VTIME] = 1;
