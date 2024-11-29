@@ -1,58 +1,73 @@
 use libc::{self};
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Write as _};
 
 fn main() -> Result<(), io::Error> {
-    let _raw_mode = unsafe { EditorConfig::new() };
+    let config = EditorConfig::new();
+    let editor = Editor { _config: config };
 
     println!("Press ctrl-q to quit");
 
     loop {
-        editor_refresh_screen();
-        editor_process_keypress()?;
+        editor.refresh_screen();
+        let quit = editor.process_keypress()?;
+        if quit {
+            break;
+        };
     }
+
+    editor.clear_screen();
+    Ok(())
 }
 
 fn ctrl_key(ch: char) -> char {
     (ch as u8 & 0x1f) as char
 }
 
-fn editor_draw_rows() {
-    for _ in 0..24 {
-        print!("~\r\n");
-    }
+struct Editor {
+    _config: EditorConfig,
 }
 
-fn editor_refresh_screen() {
-    print!("\x1b[2J");
-    print!("\x1b[H");
-
-    editor_draw_rows();
-
-    print!("\x1b[H");
-}
-
-fn editor_process_keypress() -> Result<(), std::io::Error> {
-    let c = editor_read_key()?;
-
-    if c == ctrl_key('q') {
-        editor_refresh_screen();
-        std::process::exit(0);
-    } else {
-        println!("\n\rkey: {}", c);
-    }
-    Ok(())
-}
-
-fn editor_read_key() -> Result<char, std::io::Error> {
-    let mut stdin = std::io::stdin();
-    let mut buffer = [0; 1];
-
-    loop {
-        if let Ok(_) = stdin.read_exact(&mut buffer) {
-            break;
+impl Editor {
+    fn draw_rows(&self) {
+        for _ in 0..24 {
+            print!("~\r\n");
         }
     }
-    Ok(buffer[0] as char)
+
+    fn clear_screen(&self) {
+        print!("\x1b[2J");
+        print!("\x1b[H");
+        std::io::stdout().flush().unwrap();
+    }
+
+    fn refresh_screen(&self) {
+        self.clear_screen();
+        self.draw_rows();
+
+        print!("\x1b[H");
+    }
+
+    fn process_keypress(&self) -> Result<bool, std::io::Error> {
+        let c = self.read_key()?;
+
+        if c == ctrl_key('q') {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn read_key(&self) -> Result<char, std::io::Error> {
+        let mut stdin = std::io::stdin();
+        let mut buffer = [0; 1];
+
+        loop {
+            if let Ok(_) = stdin.read_exact(&mut buffer) {
+                break;
+            }
+        }
+        Ok(buffer[0] as char)
+    }
 }
 
 struct EditorConfig {
